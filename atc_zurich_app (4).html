@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ATC Zürich – Zeiterfassung</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --blue:#2563EB; --blue-l:#EFF4FF; --blue-d:#1E3A8A; --blue-m:#BFDBFE;
+  --red-l:#FAECE7; --red:#993C1D;
+  --border:#E0E0E0; --bg:#F5F5F7; --card:#FFF;
+  --text:#1A1A1A; --text2:#666; --text3:#AAA; --ph:#B0B8C8;
+  --r:12px; --rs:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+body{background:var(--bg);min-height:100vh;display:flex;justify-content:center}
+.app{width:100%;max-width:430px;min-height:100vh;display:flex;flex-direction:column;background:var(--bg)}
+
+/* ── SPINNER ── */
+.spinner-wrap{position:fixed;inset:0;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;z-index:100}
+.spinner{width:36px;height:36px;border:3px solid var(--blue-m);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1A1A1A;color:#fff;padding:10px 18px;border-radius:var(--rs);font-size:13px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+
+/* ── LOGIN ── */
+.login-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px;gap:18px;min-height:100vh}
+.login-logo img{height:80px;width:auto;object-fit:contain;display:block;margin:0 auto 6px}
+.login-logo .sub{font-size:14px;color:var(--text2);text-align:center;display:block}
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:22px;width:100%;display:flex;flex-direction:column;gap:14px}
+.login-card h2{font-size:17px;font-weight:600;color:var(--text)}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12px;color:var(--text2);font-weight:500}
+.field input{padding:10px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:15px;color:var(--text);background:var(--bg)}
+.field input:focus{outline:none;border-color:var(--blue)}
+.btn-primary{background:var(--blue);color:#fff;border:none;border-radius:var(--rs);padding:12px;font-size:15px;font-weight:600;cursor:pointer;width:100%}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed}
+
+/* ── SET PASSWORD (invite flow) ── */
+.setpw-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px;gap:18px;min-height:100vh}
+
+/* ── TOPBAR ── */
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}
+.topbar-left{display:flex;flex-direction:column;gap:5px}
+.emp-name{font-size:15px;font-weight:600;color:var(--text)}
+.topbar-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.club-logo img{height:34px;width:auto;object-fit:contain}
+.topbar-controls{display:flex;align-items:center;gap:7px}
+select{background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);padding:5px 8px;cursor:pointer;font-size:13px}
+select:focus{outline:none;border-color:var(--blue)}
+.logout-btn{background:#FFF0EE;border:1px solid #F5C0B0;border-radius:var(--rs);cursor:pointer;font-size:13px;font-weight:600;color:var(--red);padding:5px 10px;display:flex;align-items:center;gap:5px}
+
+/* ── CONTENT ── */
+.main-wrap{display:none;flex:1;flex-direction:column;min-height:100vh}
+.screen{display:none;flex:1;flex-direction:column;overflow-y:auto}
+.screen.active{display:flex}
+.content{padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+
+/* ── DAY CARDS ── */
+.week-label-row{font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.4px;text-transform:uppercase;margin-bottom:2px;margin-top:4px}
+.day-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:11px 13px}
+.day-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.day-name{font-size:14px;font-weight:600;color:var(--text)}
+.day-total{font-size:14px;font-weight:600;color:var(--blue)}
+.time-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.time-group{display:flex;flex-direction:column;gap:4px}
+.time-group>label{font-size:11px;color:var(--text2);font-weight:500}
+.time-field{display:flex;align-items:center;gap:3px}
+.hh,.mm{width:40px;height:40px;text-align:center;font-size:18px;font-weight:600;border:1px solid var(--border);border-radius:var(--rs);background:var(--bg);color:var(--text);-moz-appearance:textfield;-webkit-appearance:none;appearance:none}
+.hh::placeholder,.mm::placeholder{color:var(--ph);font-weight:400}
+.hh:focus,.mm:focus{outline:none;border-color:var(--blue);background:#fff}
+.hh:disabled,.mm:disabled{opacity:.45;background:var(--bg)}
+.tsep{font-size:20px;font-weight:600;color:var(--text2)}
+.no-work-row{display:flex;align-items:center;gap:7px;margin-top:8px}
+.no-work-row input[type=checkbox]{width:17px;height:17px;accent-color:var(--blue);cursor:pointer}
+.no-work-row label{font-size:13px;color:var(--text2);cursor:pointer}
+.week-summary{background:#F0F0F2;border-radius:var(--rs);padding:8px 12px;display:flex;justify-content:space-between;align-items:center}
+.wsl{font-size:12px;color:var(--text2)}
+.wsv{font-size:13px;font-weight:600;color:var(--text)}
+.monthly-total{background:var(--blue);border-radius:var(--r);padding:20px;text-align:center;margin-top:6px}
+.monthly-label{font-size:13px;color:rgba(255,255,255,.85);margin-bottom:6px;font-weight:500}
+.monthly-hours{font-size:34px;font-weight:700;color:#fff;line-height:1}
+.monthly-decimal{font-size:15px;color:rgba(255,255,255,.85);margin-top:6px}
+.close-btn{background:#fff;color:var(--blue);border:1px solid var(--blue);border-radius:var(--rs);padding:13px;width:100%;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;margin-top:6px}
+.reopen-btn{background:transparent;border:1px solid #D85A30;color:#D85A30;border-radius:var(--rs);padding:12px;width:100%;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;margin-top:6px}
+.closed-banner{background:var(--blue-l);border:1px solid var(--blue-m);border-radius:var(--rs);padding:10px 13px;display:flex;align-items:center;gap:9px;font-size:13px;color:var(--blue-d);font-weight:500}
+.admin-bar{background:#FFF9E6;border:1px solid #F0D060;border-radius:var(--rs);padding:8px 12px;display:flex;align-items:center;gap:7px;font-size:13px;color:#7A5A00}
+.pdf-btn{background:var(--blue-l);color:var(--blue);border:1px solid var(--blue-m);border-radius:var(--rs);padding:11px;width:100%;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;margin-top:6px}
+.spacer{height:16px}
+
+/* ── NAVBAR ── */
+.nav-bar{background:var(--card);border-top:1px solid var(--border);display:flex}
+.nav-btn{flex:1;padding:10px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;border:none;background:transparent;cursor:pointer;color:var(--text3);font-size:11px;font-weight:500}
+.nav-btn.active{color:var(--blue)}
+.nav-btn i{font-size:22px}
+
+/* ── ADMIN ── */
+.admin-content{padding:14px;display:flex;flex-direction:column;gap:8px;flex:1}
+.admin-section-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.emp-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.emp-card:active{background:var(--blue-l)}
+.emp-info{display:flex;align-items:center;gap:11px}
+.emp-avatar{width:38px;height:38px;border-radius:50%;background:var(--blue-m);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--blue-d);flex-shrink:0}
+.emp-detail .name{font-size:14px;font-weight:600;color:var(--text)}
+.emp-detail .status{margin-top:2px}
+.badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px}
+.badge-open{background:var(--blue-l);color:var(--blue-d)}
+.badge-closed{background:var(--red-l);color:var(--red)}
+.invite-btn{background:transparent;border:1px solid var(--blue);border-radius:var(--rs);padding:12px;width:100%;font-size:14px;font-weight:600;cursor:pointer;color:var(--blue);display:flex;align-items:center;justify-content:center;gap:7px;margin-top:6px}
+
+/* ── INVITE MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+.modal{background:var(--card);border-radius:var(--r);padding:22px;width:100%;max-width:360px;display:flex;flex-direction:column;gap:14px}
+.modal h3{font-size:16px;font-weight:600;color:var(--text)}
+.modal-actions{display:flex;gap:8px;margin-top:4px}
+.btn-cancel{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:10px;font-size:14px;cursor:pointer;color:var(--text2)}
+.btn-send{flex:2;background:var(--blue);color:#fff;border:none;border-radius:var(--rs);padding:10px;font-size:14px;font-weight:600;cursor:pointer}
+.role-select-row{display:flex;gap:8px}
+.role-btn{flex:1;padding:9px;border:1px solid var(--border);border-radius:var(--rs);background:var(--bg);cursor:pointer;font-size:13px;color:var(--text2);text-align:center;transition:all .15s}
+.role-btn.active{background:var(--blue);color:#fff;border-color:var(--blue);font-weight:600}
+</style>
+</head>
+<body>
+<div id="toast" class="toast"></div>
+<div id="spinner" class="spinner-wrap"><div class="spinner"></div></div>
+
+<div class="app" id="app">
+
+<!-- LOGIN -->
+<div id="login-view" style="display:none">
+<div class="login-wrap">
+  <div class="login-logo">
+    <img src="https://images.squarespace-cdn.com/content/v1/5cb435c2fb1820559f6486df/1555328274078-7MWK36LL3KRCYY4PTZVS/logo-atc.png" alt="ATC Zürich" onerror="this.src=''">
+    <span class="sub" id="ll-sub">Zeiterfassung · Time tracking</span>
+  </div>
+  <div class="login-card">
+    <h2 id="ll-title">Anmelden</h2>
+    <div class="field"><label id="ll-email-l">E-Mail</label><input type="email" id="inp-email" placeholder="name@atczurich.ch" autocomplete="email"></div>
+    <div class="field"><label id="ll-pw-l">Passwort</label><input type="password" id="inp-pw" placeholder="••••••••" autocomplete="current-password"></div>
+    <button class="btn-primary" id="login-btn" onclick="doLogin()"></button>
+  </div>
+  <div style="margin-top:4px">
+    <select id="lang-login" onchange="setLang(this.value)">
+      <option value="de">🇩🇪 Deutsch</option>
+      <option value="fr">🇫🇷 Français</option>
+      <option value="it">🇮🇹 Italiano</option>
+      <option value="en">🇬🇧 English</option>
+    </select>
+  </div>
+</div>
+</div>
+
+<!-- SET PASSWORD (after invite link) -->
+<div id="setpw-view" style="display:none">
+<div class="setpw-wrap">
+  <div class="login-logo">
+    <img src="https://images.squarespace-cdn.com/content/v1/5cb435c2fb1820559f6486df/1555328274078-7MWK36LL3KRCYY4PTZVS/logo-atc.png" alt="ATC Zürich">
+    <span class="sub">ATC Zürich – Willkommen!</span>
+  </div>
+  <div class="login-card">
+    <h2 id="setpw-title">Passwort wählen</h2>
+    <p style="font-size:13px;color:var(--text2)" id="setpw-desc">Wähle deinen Namen und ein persönliches Passwort.</p>
+    <div class="field"><label id="setpw-name-l">Dein Name</label><input type="text" id="inp-fullname" placeholder="Max Muster" autocomplete="name"></div>
+    <div class="field"><label id="setpw-label">Neues Passwort</label><input type="password" id="inp-newpw" placeholder="min. 8 Zeichen" autocomplete="new-password"></div>
+    <div class="field"><label id="setpw-label2">Passwort bestätigen</label><input type="password" id="inp-newpw2" placeholder="••••••••" autocomplete="new-password"></div>
+    <button class="btn-primary" id="setpw-btn" onclick="doSetPassword()">Passwort speichern</button>
+  </div>
+</div>
+</div>
+
+<!-- MAIN APP -->
+<div class="main-wrap" id="main-view">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="emp-name" id="tb-empname">—</span>
+      <select id="month-select" onchange="onMonthChange(this.value)"></select>
+    </div>
+    <div class="topbar-right">
+      <div class="club-logo">
+        <img src="https://images.squarespace-cdn.com/content/v1/5cb435c2fb1820559f6486df/1555328274078-7MWK36LL3KRCYY4PTZVS/logo-atc.png" alt="ATC Zürich" onerror="this.style.display='none'">
+      </div>
+      <div class="topbar-controls">
+        <select id="lang-main" onchange="setLang(this.value)">
+          <option value="de">🇩🇪 DE</option>
+          <option value="fr">🇫🇷 FR</option>
+          <option value="it">🇮🇹 IT</option>
+          <option value="en">🇬🇧 EN</option>
+        </select>
+        <button class="logout-btn" onclick="doLogout()"><i class="ti ti-logout"></i> <span id="logout-label">Abmelden</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex:1;flex-direction:column;overflow:hidden">
+    <div id="emp-screen" class="screen active">
+      <div class="content" id="emp-content"></div>
+    </div>
+    <div id="admin-screen" class="screen">
+      <div class="admin-content">
+        <span class="admin-section-label" id="admin-list-label">Team</span>
+        <div id="admin-list"></div>
+        <button class="invite-btn" onclick="openInviteModal()"><i class="ti ti-mail"></i> <span id="inv-label">Mitarbeiter einladen</span></button>
+      </div>
+    </div>
+    <div id="profile-screen" class="screen">
+      <div class="content">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px" id="prof-section-label">Profil</div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:14px">
+          <div class="field">
+            <label id="prof-name-label">Name</label>
+            <input type="text" id="prof-name-input" placeholder="Max Muster" style="padding:10px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:15px;color:var(--text);background:var(--bg)">
+          </div>
+          <button class="btn-primary" onclick="saveProfileName()" id="prof-name-btn">Speichern</button>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:14px;margin-top:4px">
+          <div class="field">
+            <label id="prof-pw-label">Neues Passwort</label>
+            <input type="password" id="prof-pw-input" placeholder="min. 8 Zeichen" autocomplete="new-password" style="padding:10px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:15px;color:var(--text);background:var(--bg)">
+          </div>
+          <div class="field">
+            <label id="prof-pw2-label">Passwort bestätigen</label>
+            <input type="password" id="prof-pw2-input" placeholder="••••••••" autocomplete="new-password" style="padding:10px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:15px;color:var(--text);background:var(--bg)">
+          </div>
+          <button class="btn-primary" onclick="saveProfilePw()" id="prof-pw-btn">Passwort ändern</button>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+          <div>
+            <div style="font-size:12px;color:var(--text2)" id="prof-role-label">Rolle</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);margin-top:2px" id="prof-role-value">—</div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--text2)">E-Mail</div>
+            <div style="font-size:13px;color:var(--text2);margin-top:2px" id="prof-email-value">—</div>
+          </div>
+        </div>
+
+        <div style="height:16px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-bar">
+    <button class="nav-btn active" onclick="showTab('emp')" id="nav-emp"><i class="ti ti-clock"></i><span id="nav-hours">Stunden</span></button>
+    <button class="nav-btn" onclick="showTab('admin')" id="nav-admin" style="display:none"><i class="ti ti-users"></i><span id="nav-team">Team</span></button>
+    <button class="nav-btn" onclick="showTab('profile')" id="nav-profile"><i class="ti ti-user-circle"></i><span id="nav-profile-label">Profil</span></button>
+  </div>
+</div>
+
+<!-- INVITE MODAL -->
+<div class="modal-overlay" id="invite-modal" style="display:none" onclick="if(event.target===this)closeInviteModal()">
+  <div class="modal">
+    <h3 id="inv-modal-title">Mitarbeiter einladen</h3>
+    <div class="field"><label id="inv-name-l">Name</label><input type="text" id="inv-name" placeholder="Max Muster"></div>
+    <div class="field"><label id="inv-email-l">E-Mail</label><input type="email" id="inv-email" placeholder="max@example.com"></div>
+    <div class="field">
+      <label id="inv-role-l">Rolle</label>
+      <div class="role-select-row">
+        <button class="role-btn active" id="role-emp" onclick="selectRole('emp')">👤 Mitarbeiter</button>
+        <button class="role-btn" id="role-admin" onclick="selectRole('admin')">🔑 Admin</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeInviteModal()" id="inv-cancel">Abbrechen</button>
+      <button class="btn-send" onclick="doInvite()" id="inv-send"><i class="ti ti-send"></i> Einladen</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════
+const SUPA_URL = 'https://ccotjaipcittroiunwcp.supabase.co';
+const SUPA_ANON = 'sb_publishable_3crLRmSX1xLUqdDd9JP2BQ_SXjPBxMJ';
+const { createClient } = supabase;
+const sb = createClient(SUPA_URL, SUPA_ANON);
+
+// ═══════════════════════════════════════════════
+// TRANSLATIONS
+// ═══════════════════════════════════════════════
+const T = {
+  de:{login:'Anmelden',email:'E-Mail',pw:'Passwort',start:'Beginn',end:'Ende',
+    noWork:'Kein Arbeitstag',weekLabel:'KW',monthTotal:'Monatstotal',
+    closeMonth:'Monat abschliessen',closed:'Abgeschlossen – schreibgeschützt',
+    reopen:'Monat wieder öffnen',invite:'Mitarbeiter einladen',hours:'Stunden',
+    team:'Team',viewOf:'Ansicht:',openS:'Offen',closedS:'Abgeschlossen',
+    downloadPdf:'PDF herunterladen',logout:'Abmelden',sending:'Wird gesendet…',
+    inviteSent:'Einladung gesendet!',inviteError:'Fehler beim Einladen',
+    monthClosed:'Monat abgeschlossen – E-Mail gesendet',
+    setpwTitle:'Passwort wählen',setpwDesc:'Wähle dein persönliches Passwort.',
+    setpwLabel:'Neues Passwort',setpwLabel2:'Passwort bestätigen',setpwBtn:'Speichern',
+    pwMismatch:'Passwörter stimmen nicht überein',pwShort:'Mind. 8 Zeichen',
+    invModalTitle:'Mitarbeiter einladen',invName:'Name',invEmail:'E-Mail',
+    invRole:'Rolle',invCancel:'Abbrechen',invSend:'Einladen',
+    roleEmp:'Mitarbeiter',roleAdmin:'Admin',
+    profTitle:'Profil',profName:'Name',profPw:'Neues Passwort',profPw2:'Passwort bestätigen',
+    profSaveName:'Name speichern',profSavePw:'Passwort ändern',profRole:'Rolle',
+    profSaved:'Gespeichert ✓',profPwSaved:'Passwort geändert ✓',profNavLabel:'Profil',
+    roleEmpLabel:'Mitarbeiter',roleAdminLabel:'Administrator',
+    months:['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'],
+    days:['Mo','Di','Mi','Do','Fr','Sa','So']},
+  fr:{login:'Connexion',email:'E-mail',pw:'Mot de passe',start:'Début',end:'Fin',
+    noWork:'Jour sans travail',weekLabel:'Sem',monthTotal:'Total mensuel',
+    closeMonth:'Clôturer le mois',closed:'Clôturé – lecture seule',
+    reopen:'Rouvrir le mois',invite:'Inviter un employé',hours:'Heures',
+    team:'Équipe',viewOf:'Vue:',openS:'Ouvert',closedS:'Clôturé',
+    downloadPdf:'Télécharger PDF',logout:'Déconnexion',sending:'Envoi…',
+    inviteSent:'Invitation envoyée!',inviteError:"Erreur d'invitation",
+    monthClosed:'Mois clôturé – e-mail envoyé',
+    setpwTitle:'Choisir un mot de passe',setpwDesc:'Choisissez votre mot de passe.',
+    setpwLabel:'Nouveau mot de passe',setpwLabel2:'Confirmer',setpwBtn:'Enregistrer',
+    pwMismatch:'Les mots de passe ne correspondent pas',pwShort:'Min. 8 caractères',
+    invModalTitle:'Inviter un employé',invName:'Nom',invEmail:'E-mail',
+    invRole:'Rôle',invCancel:'Annuler',invSend:'Inviter',
+    roleEmp:'Employé',roleAdmin:'Admin',
+    profTitle:'Profil',profName:'Nom',profPw:'Nouveau mot de passe',profPw2:'Confirmer',
+    profSaveName:'Enregistrer le nom',profSavePw:'Changer le mot de passe',profRole:'Rôle',
+    profSaved:'Enregistré ✓',profPwSaved:'Mot de passe modifié ✓',profNavLabel:'Profil',
+    roleEmpLabel:'Employé',roleAdminLabel:'Administrateur',
+    months:['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'],
+    days:['Lu','Ma','Me','Je','Ve','Sa','Di']},
+  it:{login:'Accedi',email:'E-mail',pw:'Password',start:'Inizio',end:'Fine',
+    noWork:'Nessun lavoro',weekLabel:'Sett',monthTotal:'Totale mese',
+    closeMonth:'Chiudi il mese',closed:'Chiuso – sola lettura',
+    reopen:'Riapri il mese',invite:'Invita dipendente',hours:'Ore',
+    team:'Team',viewOf:'Vista:',openS:'Aperto',closedS:'Chiuso',
+    downloadPdf:'Scarica PDF',logout:'Esci',sending:'Invio…',
+    inviteSent:'Invito inviato!',inviteError:"Errore nell'invito",
+    monthClosed:'Mese chiuso – email inviata',
+    setpwTitle:'Scegli la password',setpwDesc:'Scegli la tua password personale.',
+    setpwLabel:'Nuova password',setpwLabel2:'Conferma password',setpwBtn:'Salva',
+    pwMismatch:'Le password non corrispondono',pwShort:'Min. 8 caratteri',
+    invModalTitle:'Invita dipendente',invName:'Nome',invEmail:'E-mail',
+    invRole:'Ruolo',invCancel:'Annulla',invSend:'Invita',
+    roleEmp:'Dipendente',roleAdmin:'Admin',
+    profTitle:'Profilo',profName:'Nome',profPw:'Nuova password',profPw2:'Conferma password',
+    profSaveName:'Salva nome',profSavePw:'Cambia password',profRole:'Ruolo',
+    profSaved:'Salvato ✓',profPwSaved:'Password cambiata ✓',profNavLabel:'Profilo',
+    roleEmpLabel:'Dipendente',roleAdminLabel:'Amministratore',
+    months:['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'],
+    days:['Lu','Ma','Me','Gi','Ve','Sa','Do']},
+  en:{login:'Sign in',email:'Email',pw:'Password',start:'Start',end:'End',
+    noWork:'No work',weekLabel:'Week',monthTotal:'Month total',
+    closeMonth:'Close month',closed:'Closed – read only',
+    reopen:'Reopen month',invite:'Invite employee',hours:'Hours',
+    team:'Team',viewOf:'Viewing:',openS:'Open',closedS:'Closed',
+    downloadPdf:'Download PDF',logout:'Sign out',sending:'Sending…',
+    inviteSent:'Invitation sent!',inviteError:'Invitation error',
+    monthClosed:'Month closed – email sent',
+    setpwTitle:'Choose password',setpwDesc:'Choose your personal password.',
+    setpwLabel:'New password',setpwLabel2:'Confirm password',setpwBtn:'Save',
+    pwMismatch:'Passwords do not match',pwShort:'Min. 8 characters',
+    invModalTitle:'Invite employee',invName:'Name',invEmail:'Email',
+    invRole:'Role',invCancel:'Cancel',invSend:'Invite',
+    roleEmp:'Employee',roleAdmin:'Admin',
+    profTitle:'Profile',profName:'Name',profPw:'New password',profPw2:'Confirm password',
+    profSaveName:'Save name',profSavePw:'Change password',profRole:'Role',
+    profSaved:'Saved ✓',profPwSaved:'Password changed ✓',profNavLabel:'Profile',
+    roleEmpLabel:'Employee',roleAdminLabel:'Administrator',
+    months:['January','February','March','April','May','June','July','August','September','October','November','December'],
+    days:['Mo','Tu','We','Th','Fr','Sa','Su']}
+};
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let lang = 'de';
+let currentUser = null;    // auth.user
+let myProfile = null;      // profiles row
+let viewingEmp = null;     // profile row of employee being viewed
+let allProfiles = [];      // all profiles (admin only)
+let currentMonth = new Date().getMonth() + 1;  // 1-12
+let currentYear  = new Date().getFullYear();
+let monthData = {};        // {day: {start_h,start_m,end_h,end_m,no_work}}
+let monthStatus = null;    // month_status row
+let inviteRole = 'emp';
+let saveTimer = null;
+
+// ═══════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════
+function show(id){ const el=document.getElementById(id); if(el){el.style.display='flex';el.style.flexDirection='column';} }
+function hide(id){ const el=document.getElementById(id); if(el) el.style.display='none'; }
+function spin(v){ document.getElementById('spinner').style.display = v ? 'flex' : 'none'; }
+function toast(msg, ms=2800){
+  const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), ms);
+}
+function s(id,txt){ const el=document.getElementById(id); if(el) el.textContent=txt; }
+function daysInMonth(y,m){ return new Date(y,m,0).getDate(); }
+function dowMon(y,m,d){ return (new Date(y,m-1,d).getDay()+6)%7; }
+function isoWeek(y,m,d){
+  const dt=new Date(Date.UTC(y,m-1,d));
+  dt.setUTCDate(dt.getUTCDate()+4-(dt.getUTCDay()||7));
+  const y1=new Date(Date.UTC(dt.getUTCFullYear(),0,1));
+  return Math.ceil((((dt-y1)/86400000)+1)/7);
+}
+function fmt(tot){ if(tot<=0)return'0:00'; const h=Math.floor(tot/60),m=tot%60; return h+':'+(m<10?'0':'')+m; }
+function fmtDec(tot){ return (tot/60).toFixed(2); }
+function calcMins(e){
+  if(!e||e.no_work)return 0;
+  const sh=parseInt(e.start_h),sm=parseInt(e.start_m),eh=parseInt(e.end_h),em=parseInt(e.end_m);
+  if([sh,sm,eh,em].some(isNaN))return 0;
+  const s=sh*60+sm,en=eh*60+em; return en>s?en-s:0;
+}
+function initials(name){ return name.split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2); }
+
+// ═══════════════════════════════════════════════
+// LANG
+// ═══════════════════════════════════════════════
+function setLang(l){
+  lang=l;
+  ['lang-login','lang-main'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=l; });
+  applyLangToUI();
+  if(currentUser){ rebuildMonthSelect(); renderCurrentScreen(); }
+  // save preference
+  if(myProfile) sb.from('profiles').update({lang:l}).eq('id',myProfile.id).then(()=>{});
+}
+function applyLangToUI(){
+  const t=T[lang];
+  s('ll-title',t.login); s('ll-email-l',t.email); s('ll-pw-l',t.pw);
+  s('login-btn','→ '+t.login); s('logout-label',t.logout);
+  s('nav-hours',t.hours); s('nav-team',t.team); s('inv-label',t.invite);
+  s('setpw-title',t.setpwTitle); s('setpw-desc',t.setpwDesc);
+  s('setpw-label',t.setpwLabel); s('setpw-label2',t.setpwLabel2);
+  s('setpw-btn',t.setpwBtn);
+  s('inv-modal-title',t.invModalTitle); s('inv-name-l',t.invName);
+  s('inv-email-l',t.invEmail); s('inv-role-l',t.invRole);
+  s('inv-cancel',t.invCancel); s('inv-send',t.invSend);
+  const re=document.getElementById('role-emp'); if(re) re.textContent='👤 '+t.roleEmp;
+  const ra=document.getElementById('role-admin'); if(ra) ra.textContent='🔑 '+t.roleAdmin;
+  // profile screen
+  s('nav-profile-label',t.profNavLabel);
+  s('prof-section-label',t.profTitle);
+  s('prof-name-label',t.profName);
+  s('prof-pw-label',t.profPw);
+  s('prof-pw2-label',t.profPw2);
+  s('prof-name-btn',t.profSaveName);
+  s('prof-pw-btn',t.profSavePw);
+  s('prof-role-label',t.profRole);
+  renderProfileInfo();
+}
+
+function rebuildMonthSelect(){
+  const sel=document.getElementById('month-select'); if(!sel)return;
+  sel.innerHTML='';
+  T[lang].months.forEach((name,i)=>{
+    const o=document.createElement('option');
+    o.value=i+1; o.textContent=name;
+    if(i+1===currentMonth) o.selected=true;
+    sel.appendChild(o);
+  });
+}
+
+// ═══════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════
+async function doLogin(){
+  const email=document.getElementById('inp-email').value.trim();
+  const pw=document.getElementById('inp-pw').value;
+  if(!email||!pw)return;
+  spin(true);
+  const {data,error}=await sb.auth.signInWithPassword({email,password:pw});
+  spin(false);
+  if(error){ toast('❌ '+error.message,3500); return; }
+  await onSignedIn(data.user);
+}
+
+async function onSignedIn(user){
+  spin(true);
+  currentUser=user;
+  const {data:prof}=await sb.from('profiles').select('*').eq('id',user.id).single();
+  myProfile=prof;
+  if(prof?.lang){ lang=prof.lang; ['lang-login','lang-main'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=lang; }); }
+  applyLangToUI();
+  if(prof?.role==='admin'){
+    const {data:profs}=await sb.from('profiles').select('*').order('full_name');
+    allProfiles=profs||[];
+    document.getElementById('nav-admin').style.display='flex';
+    document.getElementById('nav-emp').style.display='none';
+  } else {
+    document.getElementById('nav-admin').style.display='none';
+    document.getElementById('nav-emp').style.display='flex';
+    allProfiles=[];
+  }
+  viewingEmp=prof;
+  hide('login-view'); hide('setpw-view');
+  show('main-view');
+  s('tb-empname', prof?.full_name||user.email);
+  rebuildMonthSelect();
+  if(prof?.role==='admin'){
+    showTab('admin');
+  } else {
+    await loadMonthData();
+    showTab('emp');
+  }
+  spin(false);
+}
+
+async function doLogout(){
+  await sb.auth.signOut();
+  currentUser=null; myProfile=null; viewingEmp=null; allProfiles=[];
+  monthData={}; monthStatus=null;
+  hide('main-view');
+  show('login-view');
+}
+
+async function doSetPassword(){
+  const pw=document.getElementById('inp-newpw').value;
+  const pw2=document.getElementById('inp-newpw2').value;
+  const t=T[lang];
+  if(pw!==pw2){ toast('❌ '+t.pwMismatch); return; }
+  if(pw.length<8){ toast('❌ '+t.pwShort); return; }
+  spin(true);
+  const {error}=await sb.auth.updateUser({password:pw});
+  spin(false);
+  if(error){ toast('❌ '+error.message,3500); return; }
+  toast('✅ '+t.setpwBtn+'!');
+  // proceed to app
+  const {data:{user}}=await sb.auth.getUser();
+  if(user) await onSignedIn(user);
+}
+
+// ═══════════════════════════════════════════════
+// DATA LOADING
+// ═══════════════════════════════════════════════
+async function loadMonthData(){
+  if(!viewingEmp) return;
+  monthData={};
+  const {data:entries}=await sb.from('time_entries')
+    .select('*')
+    .eq('user_id', viewingEmp.id)
+    .eq('year', currentYear)
+    .eq('month', currentMonth);
+  (entries||[]).forEach(e=>{ monthData[e.day]=e; });
+
+  const {data:ms}=await sb.from('month_status')
+    .select('*')
+    .eq('user_id', viewingEmp.id)
+    .eq('year', currentYear)
+    .eq('month', currentMonth)
+    .maybeSingle();
+  monthStatus=ms;
+}
+
+async function saveEntry(day){
+  if(!viewingEmp||monthStatus?.closed) return;
+  const existing=monthData[day]||{};
+  const row={
+    user_id:viewingEmp.id, year:currentYear, month:currentMonth, day,
+    start_h: existing.start_h ?? null, start_m: existing.start_m ?? null,
+    end_h:   existing.end_h   ?? null, end_m:   existing.end_m   ?? null,
+    no_work: existing.no_work ?? false,
+    updated_at: new Date().toISOString()
+  };
+  const {error}=await sb.from('time_entries').upsert(row, {onConflict:'user_id,year,month,day'});
+  if(error) console.error('Save error:',error);
+}
+
+// ═══════════════════════════════════════════════
+// MONTH OPERATIONS
+// ═══════════════════════════════════════════════
+async function closeMonth(){
+  if(!viewingEmp) return;
+  spin(true);
+  const row={user_id:viewingEmp.id, year:currentYear, month:currentMonth, closed:true, closed_at:new Date().toISOString()};
+  await sb.from('month_status').upsert(row,{onConflict:'user_id,year,month'});
+  monthStatus=row;
+  // Generate and "send" both PDFs
+  generatePDF(lang);
+  setTimeout(()=>generatePDF('de'),700);
+  toast('✅ '+T[lang].monthClosed, 3500);
+  spin(false);
+  renderEmp();
+}
+
+async function reopenMonth(){
+  if(!viewingEmp) return;
+  spin(true);
+  await sb.from('month_status')
+    .update({closed:false, closed_at:null})
+    .eq('user_id', viewingEmp.id)
+    .eq('year', currentYear)
+    .eq('month', currentMonth);
+  monthStatus={...monthStatus, closed:false};
+  spin(false);
+  renderEmp();
+}
+
+// ═══════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════
+function showTab(tab){
+  ['emp','admin','profile'].forEach(sc=>{
+    const el=document.getElementById(sc+'-screen');
+    if(el) el.classList.toggle('active', sc===tab);
+  });
+  ['nav-emp','nav-admin','nav-profile'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.classList.toggle('active', id==='nav-'+tab);
+  });
+  if(tab==='admin'){
+    s('tb-empname', myProfile?.full_name||'Admin');
+    document.getElementById('month-select').style.display='none';
+    renderAdmin();
+  }
+  if(tab==='emp'){
+    document.getElementById('month-select').style.display='';
+  }
+  if(tab==='profile'){
+    s('tb-empname', myProfile?.full_name||'—');
+    document.getElementById('month-select').style.display='none';
+    renderProfileInfo();
+  }
+}
+function renderCurrentScreen(){
+  if(document.getElementById('emp-screen').classList.contains('active')) renderEmp();
+  else renderAdmin();
+}
+
+async function onMonthChange(val){
+  currentMonth=parseInt(val);
+  spin(true);
+  await loadMonthData();
+  spin(false);
+  renderEmp();
+}
+
+// ═══════════════════════════════════════════════
+// RENDER EMPLOYEE VIEW
+// ═══════════════════════════════════════════════
+function renderEmp(){
+  const t=T[lang];
+  const isAdminV = myProfile?.role==='admin';
+  const closed = !!monthStatus?.closed;
+  const ro = closed || isAdminV;
+  const days = daysInMonth(currentYear, currentMonth);
+
+  const byWeek={}, weekOrder=[];
+  for(let d=1;d<=days;d++){
+    const w=isoWeek(currentYear,currentMonth,d);
+    if(!byWeek[w]){byWeek[w]=[];weekOrder.push(w);}
+    byWeek[w].push(d);
+  }
+
+  let html='';
+  if(closed) html+=`<div class="closed-banner"><i class="ti ti-lock"></i> ${t.closed}</div>`;
+  if(isAdminV) html+=`<div class="admin-bar" style="justify-content:space-between"><div style="display:flex;align-items:center;gap:7px"><i class="ti ti-eye"></i> ${t.viewOf} <strong>${viewingEmp?.full_name||'—'}</strong></div><button onclick="backToTeam()" style="background:transparent;border:none;cursor:pointer;font-size:12px;color:#7A5A00;font-weight:600;display:flex;align-items:center;gap:4px"><i class="ti ti-arrow-left"></i> ${t.team}</button></div>`;
+
+  weekOrder.forEach(wn=>{
+    const dArr=byWeek[wn];
+    html+=`<div class="week-label-row">${t.weekLabel} ${wn}</div>`;
+    let wMins=0;
+    dArr.forEach(d=>{
+      const e=monthData[d]||{};
+      const nw=!!e.no_work;
+      const mins=nw?0:calcMins(e);
+      wMins+=mins;
+      const dis=ro?'disabled':'';
+      const sh=e.start_h!==undefined&&e.start_h!==null?String(e.start_h).padStart(2,'0'):'';
+      const sm=e.start_m!==undefined&&e.start_m!==null?String(e.start_m).padStart(2,'0'):'';
+      const eh=e.end_h!==undefined&&e.end_h!==null?String(e.end_h).padStart(2,'0'):'';
+      const em=e.end_m!==undefined&&e.end_m!==null?String(e.end_m).padStart(2,'0'):'';
+      const csh=sh===''?'#B0B8C8':'#1A1A1A', csm=sm===''?'#B0B8C8':'#1A1A1A';
+      const ceh=eh===''?'#B0B8C8':'#1A1A1A', cem=em===''?'#B0B8C8':'#1A1A1A';
+      const dow=dowMon(currentYear,currentMonth,d);
+      html+=`
+      <div class="day-card">
+        <div class="day-header">
+          <span class="day-name">${t.days[dow]} ${d}.</span>
+          <span class="day-total" id="dt-${d}">${fmt(mins)}</span>
+        </div>
+        <div class="time-inputs" id="trow-${d}" style="${nw?'display:none':''}">
+          <div class="time-group"><label>${t.start}</label>
+            <div class="time-field">
+              <input class="hh" id="sh-${d}" type="text" inputmode="numeric" maxlength="2"
+                value="${sh}" placeholder="08" ${dis} style="color:${csh}"
+                onfocus="this.select()" oninput="onHH(${d},'sh',this)" onblur="onBlurT(${d},'sh',this)">
+              <span class="tsep">:</span>
+              <input class="mm" id="sm-${d}" type="text" inputmode="numeric" maxlength="2"
+                value="${sm}" placeholder="00" ${dis} style="color:${csm}"
+                onfocus="this.select()" oninput="onMM(${d},'sm',this)" onblur="onBlurT(${d},'sm',this)">
+            </div>
+          </div>
+          <div class="time-group"><label>${t.end}</label>
+            <div class="time-field">
+              <input class="hh" id="eh-${d}" type="text" inputmode="numeric" maxlength="2"
+                value="${eh}" placeholder="11" ${dis} style="color:${ceh}"
+                onfocus="this.select()" oninput="onHH(${d},'eh',this)" onblur="onBlurT(${d},'eh',this)">
+              <span class="tsep">:</span>
+              <input class="mm" id="em-${d}" type="text" inputmode="numeric" maxlength="2"
+                value="${em}" placeholder="00" ${dis} style="color:${cem}"
+                onfocus="this.select()" oninput="onMM(${d},'em',this)" onblur="onBlurT(${d},'em',this)">
+            </div>
+          </div>
+        </div>
+        ${!ro
+          ?`<div class="no-work-row"><input type="checkbox" id="nw-${d}" ${nw?'checked':''} onchange="toggleNW(${d},this.checked)"><label for="nw-${d}">${t.noWork}</label></div>`
+          :(nw?`<div style="font-size:12px;color:var(--text3);margin-top:7px">${t.noWork}</div>`:'')}
+      </div>`;
+    });
+    html+=`<div class="week-summary"><span class="wsl">${t.weekLabel} ${wn}</span><span class="wsv" id="wt-${wn}">${fmt(wMins)}</span></div>`;
+  });
+
+  let total=0;
+  for(let d=1;d<=days;d++) total+=calcMins(monthData[d]||{});
+  html+=`
+  <div class="monthly-total">
+    <div class="monthly-label">${t.monthTotal} — ${t.months[currentMonth-1]} ${currentYear}</div>
+    <div class="monthly-hours" id="m-hours">${fmt(total)}</div>
+    <div class="monthly-decimal" id="m-dec">(${fmtDec(total)} h)</div>
+  </div>`;
+
+  if(!closed&&!isAdminV)
+    html+=`<button class="close-btn" onclick="closeMonth()"><i class="ti ti-lock"></i> ${t.closeMonth}</button>`;
+  if(closed&&myProfile?.role==='admin')
+    html+=`<button class="reopen-btn" onclick="reopenMonth()"><i class="ti ti-lock-open"></i> ${t.reopen}</button>`;
+  if(isAdminV){
+    html+=`<div style="display:flex;gap:8px;margin-top:6px">
+      <button class="pdf-btn" style="flex:1" onclick="generatePDF('${lang}')"><i class="ti ti-file-type-pdf"></i> PDF (${lang.toUpperCase()})</button>
+      <button class="pdf-btn" style="flex:1" onclick="generatePDF('de')"><i class="ti ti-file-type-pdf"></i> PDF (DE)</button>
+    </div>`;
+  } else {
+    html+=`<button class="pdf-btn" onclick="generatePDF('${lang}')"><i class="ti ti-file-type-pdf"></i> ${t.downloadPdf}</button>`;
+  }
+  html+='<div class="spacer"></div>';
+  document.getElementById('emp-content').innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════
+// TIME INPUT HANDLERS
+// ═══════════════════════════════════════════════
+function getOrCreate(d){ if(!monthData[d]) monthData[d]={}; return monthData[d]; }
+
+function onHH(d, field, el){
+  let v=el.value.replace(/\D/g,'').slice(0,2);
+  if(v.length===2&&parseInt(v)>23) v='23';
+  el.value=v; el.style.color=v===''?'#B0B8C8':'#1A1A1A';
+  const e=getOrCreate(d);
+  if(field==='sh') e.start_h=v===''?null:parseInt(v);
+  else             e.end_h  =v===''?null:parseInt(v);
+  if(v.length===2){ const nx=document.getElementById((field==='sh'?'sm':'em')+'-'+d); if(nx){nx.focus();nx.select();} }
+  recompute(d);
+  scheduleSave(d);
+}
+function onMM(d, field, el){
+  let v=el.value.replace(/\D/g,'').slice(0,2);
+  if(v.length===2&&parseInt(v)>59) v='59';
+  el.value=v; el.style.color=v===''?'#B0B8C8':'#1A1A1A';
+  const e=getOrCreate(d);
+  if(field==='sm') e.start_m=v===''?null:parseInt(v);
+  else             e.end_m  =v===''?null:parseInt(v);
+  recompute(d);
+  scheduleSave(d);
+}
+function onBlurT(d, field, el){
+  if(el.value!==''){
+    const n=parseInt(el.value)||0;
+    el.value=String(n).padStart(2,'0');
+    const e=getOrCreate(d);
+    const key=field==='sh'?'start_h':field==='sm'?'start_m':field==='eh'?'end_h':'end_m';
+    e[key]=n;
+    el.style.color='#1A1A1A';
+  } else { el.style.color='#B0B8C8'; }
+  recompute(d);
+  saveEntry(d);
+}
+function toggleNW(d, checked){
+  const e=getOrCreate(d);
+  e.no_work=checked;
+  const row=document.getElementById('trow-'+d); if(row) row.style.display=checked?'none':'grid';
+  recompute(d);
+  saveEntry(d);
+}
+function scheduleSave(d){ clearTimeout(saveTimer); saveTimer=setTimeout(()=>saveEntry(d), 800); }
+
+function recompute(d){
+  const e=monthData[d]||{};
+  const mins=e.no_work?0:calcMins(e);
+  const dtEl=document.getElementById('dt-'+d); if(dtEl) dtEl.textContent=fmt(mins);
+  recalcTotals();
+}
+function recalcTotals(){
+  const days=daysInMonth(currentYear,currentMonth);
+  const byWeek={};
+  let total=0;
+  for(let d=1;d<=days;d++){
+    const w=isoWeek(currentYear,currentMonth,d);
+    if(!byWeek[w]) byWeek[w]=0;
+    const mins=calcMins(monthData[d]||{});
+    byWeek[w]+=mins; total+=mins;
+  }
+  Object.keys(byWeek).forEach(w=>{
+    const el=document.getElementById('wt-'+w); if(el) el.textContent=fmt(byWeek[w]);
+  });
+  const mh=document.getElementById('m-hours'); if(mh) mh.textContent=fmt(total);
+  const md=document.getElementById('m-dec');   if(md) md.textContent='('+fmtDec(total)+' h)';
+}
+
+// ═══════════════════════════════════════════════
+// ADMIN VIEW
+// ═══════════════════════════════════════════════
+async function renderAdmin(){
+  const t=T[lang];
+  const empList=allProfiles.filter(p=>p.role==='emp');
+  // Load month statuses for current month
+  const ids=empList.map(p=>p.id);
+  let statuses={};
+  if(ids.length){
+    const {data:ms}=await sb.from('month_status')
+      .select('user_id,closed')
+      .eq('year',currentYear).eq('month',currentMonth)
+      .in('user_id',ids);
+    (ms||[]).forEach(r=>{ statuses[r.user_id]=r.closed; });
+  }
+  let html='';
+  empList.forEach(p=>{
+    const cl=!!statuses[p.id];
+    html+=`
+    <div class="emp-card" onclick="adminViewEmp('${p.id}')">
+      <div class="emp-info">
+        <div class="emp-avatar">${initials(p.full_name)}</div>
+        <div class="emp-detail">
+          <div class="name">${p.full_name}</div>
+          <div class="status"><span class="badge ${cl?'badge-closed':'badge-open'}">${cl?t.closedS:t.openS}</span></div>
+        </div>
+      </div>
+      <i class="ti ti-chevron-right" style="color:var(--text3);font-size:20px"></i>
+    </div>`;
+  });
+  document.getElementById('admin-list').innerHTML=html;
+  s('admin-list-label', t.team+' — '+t.months[currentMonth-1]);
+  s('inv-label', t.invite);
+}
+
+function backToTeam(){
+  document.getElementById('month-select').style.display='none';
+  s('tb-empname', myProfile?.full_name||'Admin');
+  showTab('admin');
+  document.getElementById('nav-admin').classList.add('active');
+  document.getElementById('nav-emp').classList.remove('active');
+}
+
+async function adminViewEmp(uid){
+  const prof=allProfiles.find(p=>p.id===uid); if(!prof) return;
+  viewingEmp=prof;
+  s('tb-empname', prof.full_name);
+  document.getElementById('month-select').style.display='';
+  rebuildMonthSelect();
+  spin(true);
+  await loadMonthData();
+  spin(false);
+  showTab('emp');
+  document.getElementById('nav-emp').classList.add('active');
+  document.getElementById('nav-admin').classList.remove('active');
+  renderEmp();
+}
+
+// ═══════════════════════════════════════════════
+// INVITE
+// ═══════════════════════════════════════════════
+function selectRole(r){
+  inviteRole=r;
+  document.getElementById('role-emp').classList.toggle('active',r==='emp');
+  document.getElementById('role-admin').classList.toggle('active',r==='admin');
+}
+function openInviteModal(){ document.getElementById('invite-modal').style.display='flex'; }
+function closeInviteModal(){ document.getElementById('invite-modal').style.display='none'; }
+
+async function doInvite(){
+  const name=document.getElementById('inv-name').value.trim();
+  const email=document.getElementById('inv-email').value.trim();
+  if(!name||!email){ toast('❌ Nome ed email richiesti'); return; }
+  const t=T[lang];
+  s('inv-send', t.sending);
+  // Use Supabase admin invite
+  const {error}=await sb.auth.admin?.inviteUserByEmail
+    ? sb.auth.admin.inviteUserByEmail(email,{data:{full_name:name,role:inviteRole,lang}})
+    : sb.auth.signInWithOtp({email, options:{data:{full_name:name,role:inviteRole,lang}, shouldCreateUser:true}});
+  // Note: inviteUserByEmail requires service_role key on client - not available.
+  // In production, call a Supabase Edge Function. For now we use OTP magic link.
+  const res=await sb.auth.signInWithOtp({
+    email,
+    options:{
+      data:{full_name:name, role:inviteRole, lang},
+      shouldCreateUser:true,
+      emailRedirectTo: window.location.href
+    }
+  });
+  if(res.error){ toast('❌ '+res.error.message,3500); s('inv-send',t.invSend); return; }
+  toast('✅ '+t.inviteSent);
+  closeInviteModal();
+  s('inv-send',t.invSend);
+  document.getElementById('inv-name').value='';
+  document.getElementById('inv-email').value='';
+}
+
+// ═══════════════════════════════════════════════
+// PDF
+// ═══════════════════════════════════════════════
+function generatePDF(pdfLang){
+  const tP=T[pdfLang||lang];
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const userName=viewingEmp?.full_name||'—';
+  const monthName=tP.months[currentMonth-1];
+  const days=daysInMonth(currentYear,currentMonth);
+  const W=210, mg=18; let y=20;
+
+  // Header
+  doc.setFillColor(37,99,235); doc.rect(0,0,W,38,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(18); doc.setFont('helvetica','bold');
+  doc.text('ATC Zürich',mg,16);
+  doc.setFontSize(10); doc.setFont('helvetica','normal');
+  doc.text('Akademischer Tennisclub – '+tP.monthTotal,mg,23);
+  doc.setFontSize(11); doc.setFont('helvetica','bold');
+  doc.text(userName,W-mg,14,{align:'right'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(10);
+  doc.text(monthName+' '+currentYear,W-mg,21,{align:'right'});
+  doc.text(monthStatus?.closed?tP.closedS:tP.openS,W-mg,28,{align:'right'});
+  y=48;
+
+  const byWeek={}, weekOrder=[];
+  for(let d=1;d<=days;d++){
+    const w=isoWeek(currentYear,currentMonth,d);
+    if(!byWeek[w]){byWeek[w]=[];weekOrder.push(w);}
+    byWeek[w].push(d);
+  }
+
+  let grand=0;
+  weekOrder.forEach(wn=>{
+    const dArr=byWeek[wn]; let wM=0;
+    doc.setFillColor(239,244,255);
+    doc.rect(mg,y-4,W-2*mg,7,'F');
+    doc.setTextColor(30,58,138); doc.setFontSize(9); doc.setFont('helvetica','bold');
+    doc.text(tP.weekLabel+' '+wn,mg+2,y+0.5);
+    y+=7;
+    dArr.forEach(d=>{
+      const e=monthData[d]||{};
+      const nw=!!e.no_work;
+      const mins=nw?0:calcMins(e);
+      wM+=mins; grand+=mins;
+      const dow=dowMon(currentYear,currentMonth,d);
+      const sh=e.start_h!==null&&e.start_h!==undefined?String(e.start_h).padStart(2,'0'):'';
+      const sm=e.start_m!==null&&e.start_m!==undefined?String(e.start_m).padStart(2,'0'):'';
+      const eh=e.end_h!==null&&e.end_h!==undefined?String(e.end_h).padStart(2,'0'):'';
+      const em=e.end_m!==null&&e.end_m!==undefined?String(e.end_m).padStart(2,'0'):'';
+      const stStr=nw?'-':(sh?sh+':'+sm:'-');
+      const enStr=nw?'-':(eh?eh+':'+em:'-');
+      const totStr=mins>0?fmt(mins):(nw?tP.noWork:'0:00');
+      if(d%2===0){doc.setFillColor(248,250,252);doc.rect(mg,y-3.5,W-2*mg,7,'F');}
+      doc.setTextColor(26,26,26);
+      doc.setFont('helvetica',dow>=5?'italic':'normal'); doc.setFontSize(9);
+      doc.text(tP.days[dow]+' '+d+'.',mg+2,y+0.5);
+      doc.setFont('helvetica','normal');
+      doc.text(stStr,mg+30,y+0.5);
+      doc.text(enStr,mg+60,y+0.5);
+      doc.setFont('helvetica',mins>0?'bold':'normal');
+      doc.setTextColor(mins>0?37:160,mins>0?99:160,mins>0?235:160);
+      doc.text(totStr,W-mg,y+0.5,{align:'right'});
+      doc.setTextColor(26,26,26);
+      y+=7;
+      if(y>270){doc.addPage();y=20;}
+    });
+    doc.setDrawColor(200,210,230); doc.line(mg,y-2,W-mg,y-2);
+    doc.setTextColor(30,58,138); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+    doc.text(tP.weekLabel+' '+wn+': '+fmt(wM),W-mg,y+2,{align:'right'});
+    y+=8;
+    if(y>270){doc.addPage();y=20;}
+  });
+
+  y+=4;
+  doc.setFillColor(37,99,235);
+  doc.roundedRect(mg,y,W-2*mg,22,3,3,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold'); doc.setFontSize(12);
+  doc.text(tP.monthTotal+' — '+monthName,mg+6,y+8);
+  doc.setFontSize(16);
+  doc.text(fmt(grand),W-mg-6,y+9,{align:'right'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(10);
+  doc.text('('+fmtDec(grand)+' h)',W-mg-6,y+17,{align:'right'});
+
+  y+=32;
+  doc.setTextColor(150,150,150); doc.setFontSize(8); doc.setFont('helvetica','normal');
+  const now=new Date();
+  const loc={de:'de-CH',fr:'fr-CH',it:'it-CH',en:'en-GB'}[pdfLang||lang]||'de-CH';
+  doc.text(now.toLocaleDateString(loc)+' '+now.toLocaleTimeString(loc,{hour:'2-digit',minute:'2-digit'}),mg,y);
+  doc.text('ATC Zürich – Vertraulich',W-mg,y,{align:'right'});
+
+  const suf=pdfLang&&pdfLang!==lang?'_'+pdfLang.toUpperCase():'';
+  doc.save('ATC_'+userName.replace(' ','_')+'_'+monthName+'_'+currentYear+suf+'.pdf');
+}
+
+// ═══════════════════════════════════════════════
+// PROFILE
+// ═══════════════════════════════════════════════
+function renderProfileInfo(){
+  const t=T[lang];
+  const nameEl=document.getElementById('prof-name-input');
+  if(nameEl&&myProfile) nameEl.value=myProfile.full_name||'';
+  const roleEl=document.getElementById('prof-role-value');
+  if(roleEl&&myProfile){
+    roleEl.textContent = myProfile.role==='admin' ? '🔑 '+t.roleAdminLabel : '👤 '+t.roleEmpLabel;
+  }
+  const emailEl=document.getElementById('prof-email-value');
+  if(emailEl&&currentUser) emailEl.textContent=currentUser.email||'—';
+}
+
+async function saveProfileName(){
+  const name=document.getElementById('prof-name-input').value.trim();
+  if(!name){ toast('❌ '+T[lang].profName+' ?'); return; }
+  spin(true);
+  // Bypass RLS by using service approach — update via upsert with auth uid
+  const {error}=await sb.from('profiles')
+    .update({full_name:name})
+    .eq('id', myProfile.id);
+  spin(false);
+  if(error){ toast('❌ '+error.message,3500); return; }
+  myProfile.full_name=name;
+  s('tb-empname', name);
+  toast('✅ '+T[lang].profSaved);
+}
+
+async function saveProfilePw(){
+  const t=T[lang];
+  const pw=document.getElementById('prof-pw-input').value;
+  const pw2=document.getElementById('prof-pw2-input').value;
+  if(pw!==pw2){ toast('❌ '+t.pwMismatch); return; }
+  if(pw.length<8){ toast('❌ '+t.pwShort); return; }
+  spin(true);
+  const {error}=await sb.auth.updateUser({password:pw});
+  spin(false);
+  if(error){ toast('❌ '+error.message,3500); return; }
+  document.getElementById('prof-pw-input').value='';
+  document.getElementById('prof-pw2-input').value='';
+  toast('✅ '+t.profPwSaved);
+}
+
+// ═══════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════
+async function boot(){
+  spin(true);
+  applyLangToUI();
+
+  // Check URL for Supabase auth tokens (invite or recovery)
+  const hash=window.location.hash;
+  if(hash.includes('access_token')){
+    // Parse token from hash
+    const params=new URLSearchParams(hash.slice(1));
+    const access_token=params.get('access_token');
+    const refresh_token=params.get('refresh_token');
+    const type=params.get('type');
+    if(access_token){
+      await sb.auth.setSession({access_token, refresh_token: refresh_token||''});
+      const {data:{user}}=await sb.auth.getUser();
+      if(user){
+        if(type==='invite'||type==='signup'||type==='recovery'){
+          // Show set-password screen
+          spin(false);
+          hide('login-view');
+          show('setpw-view');
+          history.replaceState(null,'',window.location.pathname);
+          return;
+        }
+        await onSignedIn(user);
+        history.replaceState(null,'',window.location.pathname);
+        spin(false);
+        return;
+      }
+    }
+  }
+
+  // Normal session check
+  const {data:{session}}=await sb.auth.getSession();
+  if(session?.user){
+    await onSignedIn(session.user);
+  } else {
+    show('login-view');
+  }
+  spin(false);
+}
+
+sb.auth.onAuthStateChange(async(event,session)=>{
+  if(event==='SIGNED_IN'&&session&&!currentUser){
+    // handled by boot/doLogin
+  }
+  if(event==='SIGNED_OUT'){
+    currentUser=null; myProfile=null;
+    hide('main-view'); show('login-view');
+  }
+});
+
+boot();
+</script>
+</body>
+</html>
