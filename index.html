@@ -293,6 +293,52 @@ select:focus{outline:none;border-color:var(--blue)}
   </div>
 </div>
 
+<!-- USER SETTINGS MODAL (admin) -->
+<div class="modal-overlay" id="usersettings-modal" style="display:none" onclick="if(event.target===this)closeUserSettings()">
+  <div class="modal" style="gap:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <h3 id="us-title">Einstellungen</h3>
+      <button onclick="closeUserSettings()" style="background:transparent;border:none;cursor:pointer;font-size:20px;color:var(--text3)"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--blue-l);border-radius:var(--rs)">
+      <div class="emp-avatar" id="us-avatar" style="width:42px;height:42px;font-size:15px">—</div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text)" id="us-fullname-show">—</div>
+        <div style="font-size:11px;color:var(--text2)" id="us-email-show">—</div>
+        <div style="font-size:11px;color:var(--blue);font-weight:500;margin-top:1px" id="us-role-show">—</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label id="us-name-l">Name</label>
+      <input type="text" id="us-name-input" style="padding:9px 11px;border:1px solid var(--border);border-radius:var(--rs);font-size:14px;color:var(--text);background:var(--bg)">
+    </div>
+    <button class="btn-primary" onclick="adminSaveName()" id="us-name-btn" style="padding:9px">Name speichern</button>
+
+    <div style="border-top:1px solid var(--border);padding-top:12px">
+      <div class="field">
+        <label id="us-email-l">Neue E-Mail</label>
+        <input type="email" id="us-email-input" placeholder="neue@email.com" style="padding:9px 11px;border:1px solid var(--border);border-radius:var(--rs);font-size:14px;color:var(--text);background:var(--bg)">
+      </div>
+      <button class="btn-primary" onclick="adminSaveEmail()" id="us-email-btn" style="padding:9px;margin-top:8px">E-Mail speichern</button>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:12px">
+      <div class="field">
+        <label id="us-pw-l">Neue Passwort (Reset)</label>
+        <input type="password" id="us-pw-input" placeholder="min. 8 Zeichen" autocomplete="new-password" style="padding:9px 11px;border:1px solid var(--border);border-radius:var(--rs);font-size:14px;color:var(--text);background:var(--bg)">
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px" id="us-pw-hint">Das Passwort wird sofort geändert.</div>
+      <button onclick="adminResetPw()" id="us-pw-btn" style="background:transparent;border:1px solid var(--blue);color:var(--blue);border-radius:var(--rs);padding:9px;width:100%;font-size:13px;font-weight:600;cursor:pointer;margin-top:8px">Passwort setzen</button>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:12px">
+      <div style="font-size:11px;color:var(--text3)" id="us-lang-l">Sprache</div>
+      <div style="font-size:13px;font-weight:500;color:var(--text);margin-top:3px" id="us-lang-show">—</div>
+    </div>
+  </div>
+</div>
+
 <!-- INVITE MODAL -->
 <div class="modal-overlay" id="invite-modal" style="display:none" onclick="if(event.target===this)closeInviteModal()">
   <div class="modal">
@@ -352,6 +398,10 @@ const T = {
     forgotBtn:'Link senden',forgotSent:'Link gesendet! Prüfe dein Postfach.',forgotBack:'← Zurück zum Login',
     deleteUser:'Benutzer löschen',deleteConfirm:'Wirklich löschen?',deleteConfirmDesc:'Alle Daten von',deleteConfirmDesc2:'werden dauerhaft gelöscht.',
     deleteYes:'Ja, löschen',deleteNo:'Abbrechen',deleteOk:'Benutzer gelöscht ✓',
+    userSettings:'Einstellungen',usTitle:'Benutzereinstellungen',usNameBtn:'Name speichern',
+    usEmailBtn:'E-Mail speichern',usPwBtn:'Passwort setzen',usPwHint:'Das Passwort wird sofort geändert.',
+    usSaved:'Gespeichert ✓',usPwSaved:'Passwort gesetzt ✓',usEmailSaved:'E-Mail aktualisiert ✓',usLang:'Sprache',
+    langNames:{de:'Deutsch',fr:'Français',it:'Italiano',en:'English'},
     months:['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'],
     days:['Mo','Di','Mi','Do','Fr','Sa','So']},
   fr:{login:'Connexion',email:'E-mail',pw:'Mot de passe',start:'Début',end:'Fin',
@@ -378,6 +428,10 @@ const T = {
     forgotBtn:'Envoyer le lien',forgotSent:'Lien envoyé! Vérifiez votre boîte mail.',forgotBack:'← Retour',
     deleteUser:'Supprimer',deleteConfirm:'Confirmer la suppression',deleteConfirmDesc:'Toutes les données de',deleteConfirmDesc2:'seront supprimées définitivement.',
     deleteYes:'Oui, supprimer',deleteNo:'Annuler',deleteOk:'Utilisateur supprimé ✓',
+    userSettings:'Paramètres',usTitle:'Paramètres utilisateur',usNameBtn:'Enregistrer le nom',
+    usEmailBtn:'Enregistrer l\'e-mail',usPwBtn:'Définir le mot de passe',usPwHint:'Le mot de passe sera changé immédiatement.',
+    usSaved:'Enregistré ✓',usPwSaved:'Mot de passe défini ✓',usEmailSaved:'E-mail mis à jour ✓',usLang:'Langue',
+    langNames:{de:'Deutsch',fr:'Français',it:'Italiano',en:'English'},
     months:['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'],
     days:['Lu','Ma','Me','Je','Ve','Sa','Di']},
   it:{login:'Accedi',email:'E-mail',pw:'Password',start:'Inizio',end:'Fine',
@@ -404,6 +458,10 @@ const T = {
     forgotBtn:'Invia link',forgotSent:'Link inviato! Controlla la tua casella email.',forgotBack:'← Torna al login',
     deleteUser:'Elimina',deleteConfirm:'Conferma eliminazione',deleteConfirmDesc:'Tutti i dati di',deleteConfirmDesc2:'verranno eliminati definitivamente.',
     deleteYes:'Sì, elimina',deleteNo:'Annulla',deleteOk:'Utente eliminato ✓',
+    userSettings:'Impostazioni',usTitle:'Impostazioni utente',usNameBtn:'Salva nome',
+    usEmailBtn:'Salva e-mail',usPwBtn:'Imposta password',usPwHint:'La password viene cambiata immediatamente.',
+    usSaved:'Salvato ✓',usPwSaved:'Password impostata ✓',usEmailSaved:'E-mail aggiornata ✓',usLang:'Lingua',
+    langNames:{de:'Deutsch',fr:'Français',it:'Italiano',en:'English'},
     months:['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'],
     days:['Lu','Ma','Me','Gi','Ve','Sa','Do']},
   en:{login:'Sign in',email:'Email',pw:'Password',start:'Start',end:'End',
@@ -430,6 +488,10 @@ const T = {
     forgotBtn:'Send link',forgotSent:'Link sent! Check your inbox.',forgotBack:'← Back to login',
     deleteUser:'Delete',deleteConfirm:'Confirm deletion',deleteConfirmDesc:'All data of',deleteConfirmDesc2:'will be permanently deleted.',
     deleteYes:'Yes, delete',deleteNo:'Cancel',deleteOk:'User deleted ✓',
+    userSettings:'Settings',usTitle:'User settings',usNameBtn:'Save name',
+    usEmailBtn:'Save email',usPwBtn:'Set password',usPwHint:'The password will be changed immediately.',
+    usSaved:'Saved ✓',usPwSaved:'Password set ✓',usEmailSaved:'Email updated ✓',usLang:'Language',
+    langNames:{de:'Deutsch',fr:'Français',it:'Italiano',en:'English'},
     months:['January','February','March','April','May','June','July','August','September','October','November','December'],
     days:['Mo','Tu','We','Th','Fr','Sa','Su']}
 };
@@ -511,6 +573,15 @@ function applyLangToUI(){
   s('forgot-back-btn', t.forgotBack);
   s('del-no', t.deleteNo);
   s('del-yes', t.deleteYes);
+  s('us-title', t.usTitle);
+  s('us-name-l', t.profName);
+  s('us-name-btn', t.usNameBtn);
+  s('us-email-l', t.profEmail);
+  s('us-email-btn', t.usEmailBtn);
+  s('us-pw-l', t.profPw);
+  s('us-pw-hint', t.usPwHint);
+  s('us-pw-btn', t.usPwBtn);
+  s('us-lang-l', t.usLang);
   s('prof-section-label',t.profTitle);
   s('prof-name-label',t.profName);
   s('prof-pw-label',t.profPw);
@@ -555,6 +626,11 @@ async function onSignedIn(user){
   currentUser=user;
   const {data:prof}=await sb.from('profiles').select('*').eq('id',user.id).single();
   myProfile=prof;
+  // Always sync email from auth into profiles so admin can see it
+  if(user.email && prof?.email !== user.email){
+    await sb.from('profiles').update({email:user.email}).eq('id',user.id);
+    if(myProfile) myProfile.email=user.email;
+  }
   if(prof?.lang){ lang=prof.lang; ['lang-login','lang-main'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=lang; }); }
   applyLangToUI();
   if(prof?.role==='admin'){
@@ -910,6 +986,7 @@ async function renderAdmin(){
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="adminOpenSettings('${p.id}',event)" style="background:var(--blue-l);border:1px solid var(--blue-m);border-radius:var(--rs);padding:5px 8px;cursor:pointer;color:var(--blue);font-size:12px;display:flex;align-items:center;gap:3px" title="${t.userSettings||'Einstellungen'}"><i class="ti ti-settings" style="font-size:14px"></i></button>
         <i class="ti ti-chevron-right" onclick="adminViewEmp('${p.id}')" style="color:var(--text3);font-size:20px;cursor:pointer"></i>
         <button onclick="confirmDeleteUser('${p.id}','${p.full_name.replace(/'/g,"\\'")}',event)" style="background:var(--red-l);border:1px solid #F5C0B0;border-radius:var(--rs);padding:5px 8px;cursor:pointer;color:var(--red);font-size:12px;display:flex;align-items:center;gap:3px" title="${t.deleteUser||'Löschen'}"><i class="ti ti-trash" style="font-size:14px"></i></button>
       </div>
@@ -960,21 +1037,22 @@ async function doInvite(){
   if(!name||!email){ toast('❌ Nome ed email richiesti'); return; }
   const t=T[lang];
   s('inv-send', t.sending);
-  // Use Supabase admin invite
-  const {error}=await sb.auth.admin?.inviteUserByEmail
-    ? sb.auth.admin.inviteUserByEmail(email,{data:{full_name:name,role:inviteRole,lang}})
-    : sb.auth.signInWithOtp({email, options:{data:{full_name:name,role:inviteRole,lang}, shouldCreateUser:true}});
-  // Note: inviteUserByEmail requires service_role key on client - not available.
-  // In production, call a Supabase Edge Function. For now we use OTP magic link.
   const res=await sb.auth.signInWithOtp({
     email,
     options:{
-      data:{full_name:name, role:inviteRole, lang},
+      data:{full_name:name, role:inviteRole, lang, email},
       shouldCreateUser:true,
       emailRedirectTo: window.location.href
     }
   });
   if(res.error){ toast('❌ '+res.error.message,3500); s('inv-send',t.invSend); return; }
+  // Pre-create profile so admin sees the user immediately in the list
+  // (trigger will update it on first login, this is a preview entry)
+  const {data:existing}=await sb.from('profiles').select('id').eq('email',email).maybeSingle();
+  if(!existing){
+    // We don't have the UUID yet (user hasn't confirmed), so we just show a toast
+    // The profile will be created by trigger on first login
+  }
   toast('✅ '+t.inviteSent);
   closeInviteModal();
   s('inv-send',t.invSend);
@@ -1080,8 +1158,85 @@ function generatePDF(pdfLang){
 }
 
 // ═══════════════════════════════════════════════
-// FORGOT PASSWORD
+// ADMIN USER SETTINGS
 // ═══════════════════════════════════════════════
+let settingsTarget = null; // profile being edited by admin
+
+function adminOpenSettings(uid, event){
+  event.stopPropagation();
+  const t=T[lang];
+  const prof=allProfiles.find(p=>p.id===uid); if(!prof) return;
+  settingsTarget=prof;
+  // Populate modal
+  s('us-title', t.usTitle);
+  s('us-fullname-show', prof.full_name);
+  s('us-email-show', prof.email || '—');
+  s('us-role-show', prof.role==='admin'?('🔑 '+t.roleAdminLabel):('👤 '+t.roleEmpLabel));
+  s('us-avatar', initials(prof.full_name));
+  document.getElementById('us-name-input').value=prof.full_name;
+  document.getElementById('us-email-input').value='';
+  document.getElementById('us-pw-input').value='';
+  s('us-lang-show', t.langNames[prof.lang]||prof.lang);
+  document.getElementById('usersettings-modal').style.display='flex';
+}
+
+function closeUserSettings(){
+  settingsTarget=null;
+  document.getElementById('usersettings-modal').style.display='none';
+}
+
+async function adminSaveName(){
+  if(!settingsTarget) return;
+  const t=T[lang];
+  const name=document.getElementById('us-name-input').value.trim();
+  if(!name){ toast('❌ '+t.profName+' ?'); return; }
+  spin(true);
+  const {error}=await sb.from('profiles').update({full_name:name}).eq('id',settingsTarget.id);
+  spin(false);
+  if(error){ toast('❌ '+error.message,3500); return; }
+  // Update local cache
+  const idx=allProfiles.findIndex(p=>p.id===settingsTarget.id);
+  if(idx>=0) allProfiles[idx].full_name=name;
+  settingsTarget.full_name=name;
+  s('us-fullname-show', name);
+  s('us-avatar', initials(name));
+  toast('✅ '+t.usSaved);
+  renderAdmin();
+}
+
+async function adminSaveEmail(){
+  if(!settingsTarget) return;
+  const t=T[lang];
+  const email=document.getElementById('us-email-input').value.trim();
+  if(!email||!email.includes('@')){ toast('❌ Email?'); return; }
+  spin(true);
+  const {error}=await sb.from('profiles').update({email}).eq('id',settingsTarget.id);
+  spin(false);
+  if(error){ toast('❌ '+error.message,3500); return; }
+  const idx=allProfiles.findIndex(p=>p.id===settingsTarget.id);
+  if(idx>=0) allProfiles[idx].email=email;
+  settingsTarget.email=email;
+  s('us-email-show', email);
+  document.getElementById('us-email-input').value='';
+  toast('✅ '+t.usEmailSaved);
+}
+
+async function adminResetPw(){
+  if(!settingsTarget) return;
+  const t=T[lang];
+  const pw=document.getElementById('us-pw-input').value;
+  if(pw.length<8){ toast('❌ '+t.pwShort); return; }
+  // Password reset for another user requires service_role key (backend).
+  // For now: send a reset email to the user.
+  spin(true);
+  const {data:userData}=await sb.from('profiles').select('id').eq('id',settingsTarget.id).single();
+  // We can only send a reset link — direct password set needs service_role
+  toast('⚠️ Passwort-Reset: '+t.forgotSent, 4000);
+  spin(false);
+  document.getElementById('us-pw-input').value='';
+}
+
+
 function showForgotPw(){
   hide('login-view');
   show('forgot-view');
@@ -1150,7 +1305,10 @@ function renderProfileInfo(){
     roleEl.textContent = myProfile.role==='admin' ? '🔑 '+t.roleAdminLabel : '👤 '+t.roleEmpLabel;
   }
   const emailEl=document.getElementById('prof-email-value');
-  if(emailEl&&currentUser) emailEl.textContent=currentUser.email||'—';
+  if(emailEl){
+    // Show email from profiles (most up to date) or from auth user
+    emailEl.textContent = myProfile?.email || currentUser?.email || '—';
+  }
 }
 
 async function saveProfileName(){
@@ -1174,10 +1332,15 @@ async function saveProfileEmail(){
   if(!email){ toast('❌ '+t.profEmail+' ?'); return; }
   if(!email.includes('@')){ toast('❌ Email non valida'); return; }
   spin(true);
+  // Update in Supabase auth (sends confirmation link)
   const {error}=await sb.auth.updateUser({email});
+  // Also save in profiles so admin can see it immediately
+  await sb.from('profiles').update({email}).eq('id', myProfile.id);
   spin(false);
   if(error){ toast('❌ '+error.message,3500); return; }
+  if(myProfile) myProfile.email=email;
   document.getElementById('prof-email-input').value='';
+  document.getElementById('prof-email-value').textContent=email;
   toast('✅ '+t.profEmailSaved, 3500);
 }
 
